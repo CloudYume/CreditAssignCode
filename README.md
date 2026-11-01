@@ -147,3 +147,8 @@ If you use this implementation, cite the software repository using [CITATION.cff
   url = {https://github.com/CloudYume/CreditAssignCode}
 }
 ```
+
+## Contact
+
+- Official contact: [202411770@stu.neuq.edu.cn](mailto:202411770@stu.neuq.edu.cn)
+- Personal contact: [2423301935@qq.com](mailto:2423301935@qq.com)
