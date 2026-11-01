@@ -1,3 +1,6 @@
+# CLI entry point for synthetic experiments and reduced-size smoke runs.
+# CLI overrides are applied after the smoke preset and before experiment-arm overrides.
+
 import argparse
 import sys
 import time
@@ -37,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def build_config(args: argparse.Namespace) -> Config:
     config = Config()
+    # Smoke uses smaller settings; it still exercises multiple experiment suites.
     if args.mode == "smoke":
         config = Config(**{**config.__dict__, "dataset_size": 200, "episode_budget": 64, "eval_batch": 64, "updates": 25, "log_every": 100})
     overrides: dict = {}
@@ -69,6 +73,7 @@ def main() -> int:
     args = build_parser().parse_args()
     config = build_config(args)
     families = args.families
+    # Smoke prints tables without writing the normal per-mode result directories.
     if args.mode == "smoke":
         for mode in SMOKE_MODES:
             run_mode(mode, config, families, None, args.quiet)

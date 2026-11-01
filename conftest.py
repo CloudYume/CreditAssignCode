@@ -1,3 +1,5 @@
+# Make the checkout importable when pytest is launched without package installation.
+
 import sys
 from pathlib import Path
 

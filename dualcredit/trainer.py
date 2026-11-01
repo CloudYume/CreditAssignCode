@@ -1,3 +1,6 @@
+# Collect rollouts, construct credit, and optimize configured trainable parameters.
+# Assisted, pairing, elicitation, and counterfactual branch costs are counted separately.
+
 import random
 import time
 
@@ -58,6 +61,7 @@ class Trainer:
     def _pair(self, chosen: list, update_index: int) -> int:
         if not self.config.pairing:
             return 0
+        # Measure and cache unaided failure q only for previously unpaired instances.
         quota = int(round(self.config.pairing_quota * self.config.episode_budget))
         pending = [instance for instance in chosen if instance.instance_id not in self.necessity]
         selected = pending[:quota]
@@ -76,6 +80,7 @@ class Trainer:
         return self.proxy is not None or self.config.credit_source == "judge"
 
 
+    # Proxy/judge modes need an unaided candidate in addition to recorded rewards.
     def _elicit(self, chosen: list) -> dict:
         seeds = [7 + instance.instance_id for instance in chosen]
         result = self.engine.run(chosen, seeds, decode="greedy", unaided=True)
@@ -88,6 +93,7 @@ class Trainer:
         for episode in episodes:
             emitted[episode.episode_index] = {call.call_index: call.credited_action for call in episode.calls}
         indices = sorted({call_index for mapping in emitted.values() for call_index in mapping})
+        # Replay the same seeded tool environment with one forced call-level action.
         for action in ACTIONS:
             for call_index in indices:
                 forced: list = []
@@ -132,12 +138,15 @@ class Trainer:
                 scorer=self.scorer,
                 memory_confidence=instance.memory_confidence,
             )
+        # Normalize over this update batch using the selected cell/observable keys.
+        # The sampled group IDs are recorded but do not partition answer_advantages().
         keys = [group_key(self.config, episode, credits[episode.episode_index], instance) for episode, instance in zip(episodes, instances)]
         rewards = [episode.reward for episode in episodes]
         advantages, fallbacks = answer_advantages(rewards, keys, self.config.lam, self.config.cell_floor, self.config.normalize)
         episode_matches = [mean_match(credits[episode.episode_index]) for episode in episodes if credits[episode.episode_index]]
         self.baseline.update(sum(episode_matches) / max(1, len(episode_matches)), self.config.xi)
         baseline_value = self.baseline.baseline()
+        # Counterfactual branches replace the shaped response advantage in that arm.
         branch_rewards = self._branch_rewards(episodes, instances) if self.config.counterfactual_branches else None
         call_advantages: dict = {}
         for episode, answer_adv in zip(episodes, advantages):
@@ -156,7 +165,9 @@ class Trainer:
             if position.slot == SLOT_DECISION and self.config.decision_credit:
                 decision_keys.append((position.episode_index, position.call_index))
         response_values = [call_advantages[key] for key in decision_keys if key in call_advantages]
+        # Center response advantages across realized learned decision positions.
         response_offset = (sum(response_values) / len(response_values)) if (self.config.response_center and response_values) else 0.0
+        # Route decision positions to response credit; other positions use answer credit.
         advantages_tensor = torch.zeros(len(positions), dtype=torch.float32)
         response_mask = torch.zeros(len(positions), dtype=torch.bool)
         for index, position in enumerate(positions):
@@ -185,6 +196,7 @@ class Trainer:
             response_delta=self.config.clip_delta if self.config.response_clip else None,
             entropy_beta=self.config.entropy_beta if self.config.decision_credit else 0.0,
         )
+        # Sampling/labels are detached; gradients flow through recomputed policy logits.
         self.optimizer.zero_grad(set_to_none=True)
         if bool(report["loss"].requires_grad):
             report["loss"].backward()

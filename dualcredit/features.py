@@ -1,3 +1,6 @@
+# Encode observable rollout state into fixed-width policy inputs.
+# Gold answers stay in records for scoring; components() does not encode gold_id.
+
 from dataclasses import dataclass
 
 import torch
@@ -34,6 +37,7 @@ class FeatureBuilder:
     def __init__(self, config: Config):
         self.config = config
         self.num_values = config.num_values
+        # The extra one-hot slot represents an unresolvable/dangling payload.
         self.slot = config.num_values + 1
         self.max_calls = config.max_calls
         self.order = [
@@ -91,6 +95,7 @@ class FeatureBuilder:
         self.budget_start = self.starts["budget"]
         self.family_start = self.starts["family"]
 
+    # Build features only from memory, observed payloads, actions, and remaining budget.
     def components(self, state: EpisodeState) -> dict:
         passage_mean = [0.0] * self.slot
         candidate_support = 0.0

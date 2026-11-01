@@ -1,3 +1,5 @@
+# Public imports for the synthetic dual-channel credit assignment experiments.
+
 from .arbitration import CallCredit, credit_calls, group_key, judge_action, mean_match
 from .config import Config, arm_config
 from .credit import (

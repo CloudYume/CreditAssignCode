@@ -1,3 +1,6 @@
+# Turn realized tool calls into credit records under the chosen label source.
+# Recorded/proxy payload states and emitted/parsed/judged actions are separate axes.
+
 from dataclasses import dataclass
 
 from .config import Config
@@ -57,6 +60,7 @@ def credit_calls(
         action = call.credited_action
         entailment = None
         corroborated = None
+        # Recorded validity is simulator supervision; the proxy can return None.
         if proxy is None:
             payload_state = int(call.payload.payload_valid)
         else:
@@ -81,6 +85,7 @@ def credit_calls(
                 instance_id=int(episode.instance_id),
             )
         )
+    # Attribution ablations change the credited action, not the completed rollout.
     if config.credit_source == "parsed" and episode.parsed_action is not None:
         for credit in credits:
             credit.action = int(episode.parsed_action)
@@ -99,6 +104,7 @@ def credit_calls(
 def group_key(config: Config, episode: EpisodeRecord, credits: list, instance) -> int | None:
     if not credits:
         return None
+    # Episode normalization uses the final credited call; per-call credit stays separate.
     consumed = credits[-1]
     if config.strata == "observable":
         return observable_stratum(consumed.agreement_count, config.corroboration_depth, instance.memory_confidence)

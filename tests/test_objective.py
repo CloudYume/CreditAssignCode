@@ -1,3 +1,5 @@
+# Check likelihood ratios, channel routing, KL, entropy, and gradient propagation.
+
 import math
 
 import pytest

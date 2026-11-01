@@ -1,9 +1,13 @@
+# Immutable experiment settings and explicit per-arm overrides.
+# Arm names are stable output identifiers shared by the CLI, tables, and tests.
+
 from dataclasses import dataclass, replace
 from typing import Any
 
 
 @dataclass(frozen=True)
 class Config:
+    # Reproducible task generation and rollout dimensions.
     seed: int = 1234
     family: str = "retrieval"
     num_values: int = 24
@@ -13,6 +17,7 @@ class Config:
     passages_per_call: int = 3
     training_corruption_rate: float = 0.30
     evaluation_corruption_rates: tuple = (0.0, 0.30)
+    # Reward, rollout allocation, and dual-channel credit hyperparameters.
     alpha_call: float = 0.04
     group_size: int = 8
     episode_budget: int = 320
@@ -26,11 +31,13 @@ class Config:
     kl_beta: float = 0.02
     entropy_beta: float = 0.80
     learning_rate: float = 5.0e-3
+    # Model capacity and trainable-parameter controls.
     hidden: int = 64
     adapter_rank: int = 8
     heads_trainable: bool = True
     trunk_adapter_trainable: bool = False
     answer_head_trainable: bool = False
+    # Proxy thresholds and method/ablation switches.
     entailment_tau: float = 0.50
     corroboration_depth: int = 2
     proxy_agreement_factor: bool = True
@@ -54,6 +61,7 @@ class Config:
 
 
 def arm_config(base: Config, arm: str) -> Config:
+    # These are local synthetic baselines; names do not import external methods.
     overrides: dict[str, dict[str, Any]] = {
         "no_component": {"tool_access": False, "updates": 0},
         "caution_prompt": {"updates": 0, "gate": "caution"},

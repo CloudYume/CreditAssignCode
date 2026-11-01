@@ -1,3 +1,6 @@
+# Quadrant labels, supported actions, reward normalization, and credit shaping.
+# Action IDs are override=0, adopt=1, and requery=2; state IDs are s=q+2*z.
+
 import math
 from dataclasses import dataclass
 
@@ -15,13 +18,16 @@ def necessity_indicator(unaided_success: int) -> int:
 
 
 def cell_index(necessity: int, payload_state: int) -> int:
+    # q=1 means unaided failure; z=1 means the consumed payload is valid.
     return int(necessity) + 2 * int(payload_state)
 
 
 def normative_actions(cell: int, budget_remaining: int) -> tuple:
+    # A singleton is a unique target; ALL_ACTIONS marks an undecided case.
     if cell == 0:
         return (0,)
     if cell == 1:
+        # Requery is normative only while another call remains available.
         return (2,) if budget_remaining > 0 else ALL_ACTIONS
     if cell == 2:
         return ALL_ACTIONS
@@ -76,6 +82,7 @@ def group_statistics(values: list, keys: list) -> GroupStats:
     means: dict = {}
     spreads: dict = {}
     pooled = [values[index] for index, key in enumerate(keys) if key is not None]
+    # Pooled statistics include every reward, even when its cell label is missing.
     total, mean, spread = _stats([values[index] for index in range(len(values))])
     counts["pooled"] = total
     means["pooled"] = mean
@@ -102,6 +109,7 @@ def answer_advantages(values: list, keys: list, lam: float, floor: int, normaliz
     for index, key in enumerate(keys):
         value = values[index]
         pooled_term = (value - pooled_mean) / (pooled_spread + EPSILON)
+        # Sparse or unavailable cells fall back to the full-batch normalized reward.
         usable = normalize != "pooled" and key is not None and stats.counts.get(key, 0) >= floor
         if not usable:
             advantages.append(pooled_term)
@@ -115,6 +123,7 @@ def answer_advantages(values: list, keys: list, lam: float, floor: int, normaliz
             fallbacks.append(0)
         else:
             weight = 1.0 if lam is None else lam
+            # lambda=1 is pooled-only; lambda=0 is cell-only where the cell is usable.
             advantages.append(weight * pooled_term + (1.0 - weight) * cell_term)
             fallbacks.append(0)
     return advantages, fallbacks
@@ -133,6 +142,7 @@ class RunningMatchBaseline:
         self.frozen = None
 
     def update(self, batch_mean: float, xi: float) -> float:
+        # The uncentered ablation freezes its first observed batch mean.
         if not self.centered:
             if self.frozen is None:
                 self.frozen = batch_mean

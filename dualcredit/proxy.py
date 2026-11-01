@@ -1,3 +1,6 @@
+# Estimate payload validity from candidate agreement and corroboration.
+# NLIScorer is a seeded synthetic scoring model, not a pretrained NLI service.
+
 import random
 from dataclasses import dataclass
 
@@ -48,6 +51,7 @@ class ProxyEstimator:
         self.use_corroboration = config.proxy_corroboration if use_corroboration is None else use_corroboration
 
     def estimate(self, payload: PayloadRecord, elicited_id: int, instance_id: int) -> ProxyOutput:
+        # Missing elicitation is an unknown state, not evidence of an invalid payload.
         if elicited_id < 0:
             return ProxyOutput(estimated_state=None, entailment=0.0, corroborated=0, decidable=0)
         entailment = self.scorer.entailment(payload.consumed_id, elicited_id, instance_id, payload.call_index)
@@ -58,6 +62,7 @@ class ProxyEstimator:
         corroborated = int(corroborating >= self.config.corroboration_depth)
         if payload.consumed_id == self.config.num_values:
             return ProxyOutput(estimated_state=0, entailment=entailment, corroborated=corroborated, decidable=1)
+        # The proxy is positive only when each enabled factor passes.
         entailment_pass = 1 if (not self.use_agreement_factor or entailment >= self.config.entailment_tau) else 0
         corroboration_pass = 1 if (not self.use_corroboration or corroborated) else 0
         decidable = int(payload.extractable_count > 0)

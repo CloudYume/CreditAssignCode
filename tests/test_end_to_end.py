@@ -1,3 +1,6 @@
+# Exercise arm construction, short training, evaluation, reproducibility, and exports.
+# SMALL deliberately bounds the work; these checks do not reproduce full paper results.
+
 import math
 from dataclasses import FrozenInstanceError
 

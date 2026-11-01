@@ -1,3 +1,5 @@
+# Check quadrant conventions, normalization fallbacks, and response credit baselines.
+
 import math
 from types import SimpleNamespace
 

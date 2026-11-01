@@ -1,3 +1,6 @@
+# Small CPU tensor policy with frozen random features and low-rank adapters.
+# This is a discrete synthetic policy, not an adapter around a pretrained LLM.
+
 import torch
 import torch.nn as nn
 
@@ -13,6 +16,7 @@ class Head(nn.Module):
         self.weights_trainable = weights_trainable
         self.adapter_down = nn.Parameter(torch.zeros(rank, in_features))
         self.adapter_up = nn.Parameter(torch.zeros(out_features, rank))
+        # A zero up-projection starts the hidden-state adapter contribution at zero.
         nn.init.normal_(self.adapter_down, std=1.0 / (rank ** 0.5))
         self.skip_features = skip_features
         if skip_features is None:
@@ -78,6 +82,7 @@ class Policy(nn.Module):
         self.call_head = Head(self.hidden, 2, config.adapter_rank, features.dimension, config.heads_trainable)
         self.decision_head = Head(self.hidden, 3, config.adapter_rank, features.dimension, config.heads_trainable)
         self.answer_head = Head(self.hidden, config.num_values, config.adapter_rank, None, config.answer_head_trainable)
+        # Fixed answer readout supplies memory/copy behavior without answer-head training.
         copy = torch.zeros(config.num_values, features.dimension)
         copy[:, features.memory_start:features.memory_start + config.num_values] = 0.15 * torch.eye(config.num_values)
         copy[:, features.candidate_start:features.candidate_start + config.num_values] = 3.00 * torch.eye(config.num_values)
@@ -108,6 +113,8 @@ class Policy(nn.Module):
         answer_logits = self.answer_head(hidden, self.adapter_scale, inputs) + torch.nn.functional.linear(inputs, self.copy_readout)
         return call_logits, decision_logits, answer_logits
 
+    # Disable adapter paths. When base heads are trainable, their current weights are
+    # reused here; this is not a separately frozen initial-policy snapshot.
     @torch.no_grad()
     def reference(self, inputs: torch.Tensor) -> tuple:
         hidden = self.hidden_state(inputs, adapted=False)
@@ -119,6 +126,7 @@ class Policy(nn.Module):
     def heads(self) -> tuple:
         return (self.trunk_adapter, self.call_head, self.decision_head, self.answer_head)
 
+    # Despite the name, this can include base head weights enabled by the config.
     def adapter_parameters(self) -> list:
         trainable: list = []
         for head in self.heads():

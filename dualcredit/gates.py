@@ -1,3 +1,6 @@
+# Hand-written inference gates used by the non-training comparison arms.
+# They select actions from observable state and optional simulated scorer outputs.
+
 from .config import Config
 from .features import ACTION_ADOPT, ACTION_OVERRIDE, ACTION_REQUERY, EpisodeState
 

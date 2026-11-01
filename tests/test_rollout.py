@@ -1,3 +1,5 @@
+# Check state transitions, forced actions, budgets, and position/feature alignment.
+
 import pytest
 import torch
 

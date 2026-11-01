@@ -1,3 +1,6 @@
+# Generate controlled tool returns, including misleading source consensus.
+# Payload validity is simulator metadata for credit/evaluation, not a policy input.
+
 import random
 from dataclasses import dataclass
 
@@ -48,6 +51,7 @@ class PerturbationEngine:
                 passage_ids.append(self._distractor(instance, consumed_id, rng))
         agreeing = sum(1 for value in passage_ids if value == consumed_id and value != self.sentinel)
         extractable_count = sum(1 for value in passage_ids if value != self.sentinel)
+        # Validity follows the consumed value, not whether several passages agree.
         valid = int(consumed_id != self.sentinel and consumed_id == instance.gold_id)
         return PayloadRecord(
             call_index=call_index,
@@ -66,6 +70,7 @@ class PerturbationEngine:
 
     def _corrupted_value(self, instance: Instance, corruption: str, rng: random.Random) -> int:
         num_values = self.config.num_values
+        # Corruption can reinforce an existing memory error rather than contradict it.
         if rng.random() < CONSISTENT_ERROR_MASS and instance.memory_candidate_id != instance.gold_id:
             return instance.memory_candidate_id
         if instance.family == "retrieval":

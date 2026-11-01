@@ -1,3 +1,6 @@
+# Evaluate held-out synthetic tasks and report episode- and call-level metrics.
+# Recorded labels also support proxy diagnostics; percentages use distinct denominators.
+
 import time
 
 from .arbitration import credit_calls
@@ -31,6 +34,7 @@ class Harness:
         pool = self.dataset.test if split == "test" else self.dataset.train
         limit = self.config.eval_batch if instance_limit is None else instance_limit
         instances = pool[: max(1, min(limit, len(pool)))]
+        # An unaided evaluation pass establishes q and proxy elicitation candidates.
         unaided = self.engine.run(instances, [17 + instance.instance_id for instance in instances], decode="greedy", unaided=True)
         self.episodes += len(unaided.episodes)
         necessity: dict = {}
@@ -74,6 +78,7 @@ class Harness:
         all_credits = [credit for episode in episodes for credit in credits[episode.episode_index]]
         answered = [int(exact_match(episode.answer_id, episode.gold_id, episode.family, self.config.num_values)) for episode in episodes]
         last_recorded = {episode.episode_index: (recorded[episode.episode_index][-1] if recorded[episode.episode_index] else None) for episode in episodes}
+        # theta1/theta0 condition on the final recorded payload among tool-using episodes.
         theta_one = [
             int(exact_match(episode.answer_id, episode.gold_id, episode.family, self.config.num_values))
             for episode in episodes
@@ -90,6 +95,8 @@ class Harness:
         crossing = None
         if theta_one and theta_zero and theta_one_value > theta_zero_value:
             crossing = (theta - theta_zero_value) / (theta_one_value - theta_zero_value)
+        # dec_acc uses uniquely decided calls; cov is the complementary call fraction.
+        # proxy.coverage below instead measures availability of a payload-state estimate.
         decided = [credit for credit in all_credits if credit.decided]
         report = {
             "corruption_rate": corruption_rate,
@@ -124,6 +131,7 @@ class Harness:
         decidable = [(left, right) for (left, right) in pairs if left.payload_state is not None]
         positives = [(left, right) for (left, right) in decidable if left.payload_state == 1]
         precision = 100.0 * sum(int(right.payload_state == 1) for (_, right) in positives) / len(positives) if positives else 0.0
+        # Proxy coverage counts known estimates, including both predicted classes.
         coverage = 100.0 * len(decidable) / len(pairs)
         cell_one = [(left, right) for (left, right) in decidable if right.cell == 1]
         bias = 0.0

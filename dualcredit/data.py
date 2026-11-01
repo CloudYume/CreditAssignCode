@@ -1,3 +1,6 @@
+# Synthetic retrieval/execution instances with controlled memory accuracy.
+# Both families use discrete answer IDs; execution maps those IDs to numbers.
+
 import math
 import random
 from dataclasses import dataclass
@@ -33,6 +36,7 @@ def id_of_numeric(numeric: float, num_values: int, gold_id: int) -> int:
         if gap < best_gap:
             best_gap = gap
             best_id = candidate
+    # A corruption must remain wrong after projecting a numeric value back to an ID.
     if best_id == gold_id:
         shifted = (gold_id + 1) % num_values
         return shifted
@@ -59,6 +63,7 @@ class TaskDataset:
         self.family = family or config.family
         rng = random.Random(config.seed if seed is None else seed)
         self.instances = [self._build(index, rng) for index in range(config.dataset_size)]
+        # Split the seeded instance sequence before any training or evaluation.
         split = int(round(config.train_share * config.dataset_size))
         self.train = self.instances[:split]
         self.test = self.instances[split:]

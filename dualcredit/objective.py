@@ -1,3 +1,6 @@
+# Differentiate the answer and response surrogates on recorded rollout positions.
+# Behavior log-probabilities define the ratio denominator; reference logits define KL.
+
 import torch
 
 
@@ -37,6 +40,7 @@ def channel_rows(positions: list, response_mask: torch.Tensor) -> tuple:
     call_flags = torch.tensor([int(position.slot == "call") for position in positions], dtype=torch.bool)
     decision_flags = torch.tensor([int(position.slot == "decision") for position in positions], dtype=torch.bool)
     answer_flags = torch.tensor([int(position.slot == "answer") for position in positions], dtype=torch.bool)
+    # The answer channel includes every non-response position, including call slots.
     answer_rows = index[~response_mask]
     response_rows = index[response_mask]
     call_rows = index[call_flags]
@@ -53,6 +57,7 @@ def dual_channel_loss(new_call: torch.Tensor, new_decision: torch.Tensor, new_an
     new_logp = torch.zeros(len(positions))
     reference_logp = torch.zeros(len(positions))
     tokens = torch.tensor([position.token for position in positions], dtype=torch.long)
+    # Stored behavior probabilities are detached constants in the importance ratio.
     old_logp = torch.tensor([position.logprob for position in positions], dtype=torch.float32)
     if call_rows.numel() > 0:
         new_logp[call_rows] = gather_logprob(new_call, call_rows, tokens[call_rows])
@@ -65,11 +70,13 @@ def dual_channel_loss(new_call: torch.Tensor, new_decision: torch.Tensor, new_an
         reference_logp[answer_slots] = gather_logprob(ref_answer, answer_slots, tokens[answer_slots])
     answer_loss = answer_channel_term(new_logp[answer_rows], old_logp[answer_rows], advantages[answer_rows], delta) if answer_rows.numel() > 0 else torch.zeros(0)
     response_loss = response_channel_term(new_logp[response_rows], old_logp[response_rows], advantages[response_rows], response_delta) if response_rows.numel() > 0 else torch.zeros(0)
+    # KL covers answer and decision slots; call slots are excluded by this implementation.
     divergence = kl_k3(new_logp[answer_slots], reference_logp[answer_slots]) if answer_slots.numel() > 0 else torch.zeros(0)
     decision_divergence = kl_k3(new_logp[decision_rows], reference_logp[decision_rows]) if decision_rows.numel() > 0 else torch.zeros(0)
     blocks = [block for block in (divergence, decision_divergence) if block.numel() > 0]
     divergence_all = torch.cat(blocks) if blocks else torch.zeros(0)
     entropy = entropy_term(new_decision[decision_rows]) if decision_rows.numel() > 0 else torch.zeros(0)
+    # Average the channels independently so their scales do not follow row counts.
     total = answer_loss.mean() if answer_loss.numel() > 0 else torch.tensor(0.0)
     if response_loss.numel() > 0:
         total = total + response_loss.mean()

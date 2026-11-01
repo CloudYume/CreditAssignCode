@@ -1,3 +1,6 @@
+# Record call -> payload decision -> answer transitions for batched episodes.
+# Features and behavior log-probabilities are captured before each state update.
+
 import random
 from dataclasses import dataclass, field
 
@@ -98,6 +101,7 @@ class RolloutEngine:
     ) -> RolloutResult:
         rate = self.config.training_corruption_rate if corruption_rate is None else corruption_rate
         states = [self._initial_state(instance, seed) for instance, seed in zip(instances, seeds)]
+        # Unaided and no-tool runs bypass the call/decision stages entirely.
         phases = [PHASE_ANSWER if (unaided or not tool_access) else PHASE_CALL for _ in states]
         episodes = [
             EpisodeRecord(
@@ -113,6 +117,7 @@ class RolloutEngine:
         ]
         rows: list[list[float]] = []
         positions: list[PositionRecord] = []
+        # Each tool return needs one call step and one decision step, then an answer.
         max_steps = 2 * self.config.max_calls + 2
         for _ in range(max_steps):
             active = [index for index in range(len(states)) if phases[index] != PHASE_DONE]
@@ -172,6 +177,7 @@ class RolloutEngine:
         return RolloutResult(episodes=episodes, positions=positions, position_features=features_tensor)
 
     def _emit_call(self, state: EpisodeState, logits: torch.Tensor, episode: EpisodeRecord, instance: Instance, positions: list, rows: list, decode: str, generator, scorer, corruption_rate: float) -> int:
+        # Assisted runs force the first call; later call slots may stop and answer.
         if state.calls_used == 0:
             logits[ANSWER_STOP_TOKEN] = float("-inf")
         token = self._select(logits, decode, generator)
@@ -201,6 +207,7 @@ class RolloutEngine:
         return PHASE_DECISION
 
     def _emit_decision(self, state: EpisodeState, logits: torch.Tensor, reference_logits: torch.Tensor, episode: EpisodeRecord, positions: list, rows: list, decode: str, gate: str, scorer, forced_map: dict | None, generator) -> int:
+        # Mask requery before selecting the learned action when no further call is allowed.
         if state.calls_used >= self.config.max_calls or self.config.no_requery:
             logits[ACTION_REQUERY] = float("-inf")
         call_record = episode.calls[-1]
@@ -216,6 +223,7 @@ class RolloutEngine:
             emitted = int(action)
         logprob = self._logprob(logits, int(action))
         decision_position = NO_POSITION
+        # Gates/instruction-only variants act without a learned decision-position record.
         if self.config.decision_slot and gate == "none" and self.config.credit_source != "instruction":
             record = PositionRecord(position_index=len(positions), slot=SLOT_DECISION, episode_index=episode.episode_index, token=int(action), logprob=logprob, call_index=call_record.call_index)
             positions.append(record)
@@ -263,6 +271,7 @@ class RolloutEngine:
             seed=seed,
         )
 
+    # This baseline infers an action from the final answer; it is not the emitted action.
     def _parse_action(self, episode: EpisodeRecord, state: EpisodeState) -> int | None:
         if not episode.calls:
             return None

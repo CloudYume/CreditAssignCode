@@ -1,3 +1,6 @@
+# Run named comparison arms and render tables with their underlying JSON records.
+# Keep identifiers stable so saved results can be traced back to configuration overrides.
+
 import csv
 import json
 import time
@@ -18,6 +21,7 @@ from .trainer import Trainer
 
 FAMILIES = ("retrieval", "execution")
 
+# Arm IDs are serialized with their effective Config in detailed result files.
 MAIN_ARMS = (
     "no_component",
     "caution_prompt",
@@ -165,6 +169,7 @@ def run_arm(base: Config, arm: str, family: str) -> dict:
         report = harness.evaluate(rate)
         reports[str(rate)] = {key: report[key] for key in SHARED_KEYS + CELL_KEYS}
         reports[str(rate)]["proxy"] = report["proxy"]
+    # Include auxiliary pairing, elicitation, and branching when reporting training cost.
     episodes = trainer.assisted_episodes + trainer.paired_episodes + trainer.elicitation_episodes + trainer.branch_episodes
     updates = max(1, config.updates)
     return {
@@ -418,6 +423,7 @@ def _plain(value):
 
 def run(mode: str, base: Config, output_dir=None, families=FAMILIES, log=print) -> dict:
     payload: dict = {"mode": mode, "families": list(families)}
+    # Detailed JSON preserves both task families even when a compact table filters one.
     if mode == "boundary":
         rows = run_boundary(base, families=families, log=log)
         payload["boundary"] = _plain(rows)
