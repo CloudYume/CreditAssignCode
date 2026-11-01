@@ -3,7 +3,7 @@
 ![Method](https://img.shields.io/badge/Method-Dual--Channel_Credit_Assignment-orange?style=flat-square)
 ![Framework](https://img.shields.io/badge/Framework-PyTorch-red?style=flat-square)
 
-A synthetic reference implementation of dual-channel credit assignment for *Credit the Response, Not the Call: Identifiable Payload States and Adoption Actions for Agentic Reinforcement Learning*.
+A synthetic reference implementation of dual-channel credit assignment for *Trust the Return, or Trust Yourself? Identifiable Payload States for Agentic Reinforcement Learning*.
 
 The implementation separates the reward for completing a task from credit for deciding how to use a tool response. It provides controlled retrieval and execution task families, corrupted payloads, explicit adoption actions, training variants, and evaluation reports.
 
@@ -130,3 +130,20 @@ CreditAssignCode/
 ```
 
 Start with `config.py`, `data.py`, and `features.py`, then follow one episode through `rollout.py`. Read `credit.py` and `arbitration.py` before `trainer.py` and `objective.py`. Finish with `evaluation.py` to understand which population each reported metric describes.
+
+## License
+
+Original code and documentation in this repository are available under the [MIT License](LICENSE). Third-party dependencies retain their respective licenses. This software license does not assign a license to the associated manuscript or external research materials.
+
+## Citation
+
+If you use this implementation, cite the software repository using [CITATION.cff](CITATION.cff). Project-level attribution is used in the public metadata.
+
+```bibtex
+@software{creditassigncode,
+  author = {{CreditAssignCode contributors}},
+  title = {CreditAssignCode},
+  year = {2026},
+  url = {https://github.com/CloudYume/CreditAssignCode}
+}
+```

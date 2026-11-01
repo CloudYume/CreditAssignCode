@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this implementation, please cite this software repository."
+type: software
+title: CreditAssignCode
+authors:
+  - name: "CreditAssignCode contributors"
+repository-code: "https://github.com/CloudYume/CreditAssignCode"
+url: "https://github.com/CloudYume/CreditAssignCode"
+license: MIT
+abstract: >-
+  A synthetic reference implementation of dual-channel credit assignment
+  for Trust the Return, or Trust Yourself? Identifiable Payload States
+  for Agentic Reinforcement Learning, with controlled retrieval and
+  execution tasks, response decisions, training variants, and evaluation.
+keywords:
+  - credit assignment
+  - reinforcement learning
+  - tool use
+  - synthetic experiments
